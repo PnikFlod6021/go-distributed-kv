@@ -72,7 +72,7 @@ The WAL replays complete records on restart; an incomplete record causes replay 
 go run ./cmd/loadtest -target http://localhost:8081 -n 10000 -c 100 -writes 20
 ```
 
-Output includes requests/sec plus p50, p95, and p99 latency. The current generator counts HTTP responses below 500 as successful, including missing-key responses. Latency measures time until response headers arrive.
+Output includes attempted requests/sec, successful and failed counts, and p50/p95/p99 latency. Only complete HTTP 2xx responses count as successful; missing keys and transport or body-read errors count as failures. Latency includes reading the response body and covers every attempt. The request count and concurrency must be positive, and the write percentage must be between 0 and 100. Reads are not prepopulated, so a fresh cluster will report missing-key failures.
 
 ## Kubernetes
 
