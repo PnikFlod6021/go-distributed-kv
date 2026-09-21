@@ -1,0 +1,10 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: kv-pdb
+  namespace: distributed-kv
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: distributed-kv
