@@ -1,0 +1,32 @@
+services:
+  node1:
+    build: .
+    command: ["-node=node-1","-self-url=http://node1:8080","-addr=:8080","-wal=/data/store.wal","-replicas=2","-nodes=node-1=http://node1:8080,node-2=http://node2:8080,node-3=http://node3:8080"]
+    ports: ["8081:8080"]
+    volumes: ["node1-data:/data"]
+  node2:
+    build: .
+    command: ["-node=node-2","-self-url=http://node2:8080","-addr=:8080","-wal=/data/store.wal","-replicas=2","-nodes=node-1=http://node1:8080,node-2=http://node2:8080,node-3=http://node3:8080"]
+    ports: ["8082:8080"]
+    volumes: ["node2-data:/data"]
+  node3:
+    build: .
+    command: ["-node=node-3","-self-url=http://node3:8080","-addr=:8080","-wal=/data/store.wal","-replicas=2","-nodes=node-1=http://node1:8080,node-2=http://node2:8080,node-3=http://node3:8080"]
+    ports: ["8083:8080"]
+    volumes: ["node3-data:/data"]
+  prometheus:
+    image: prom/prometheus:v2.55.0
+    ports: ["9090:9090"]
+    volumes: ["./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro"]
+    depends_on: [node1,node2,node3]
+  grafana:
+    image: grafana/grafana:11.2.0
+    ports: ["3000:3000"]
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboard.json:/var/lib/grafana/dashboards/kv.json:ro
+    depends_on: [prometheus]
+volumes:
+  node1-data:
+  node2-data:
+  node3-data:
