@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sync"
@@ -44,18 +45,25 @@ func (s *Store) Load() error {
 		f.Close()
 		return err
 	}
-	scan := bufio.NewScanner(f)
-	for scan.Scan() {
+	reader := bufio.NewReader(f)
+	for {
+		line, readErr := reader.ReadBytes('\n')
+		if readErr != nil && readErr != io.EOF {
+			f.Close()
+			return fmt.Errorf("read WAL: %w", readErr)
+		}
+		if len(line) == 0 && readErr == io.EOF {
+			break
+		}
 		var rec record
-		if err := json.Unmarshal(scan.Bytes(), &rec); err != nil {
+		if err := json.Unmarshal(line, &rec); err != nil {
 			f.Close()
 			return fmt.Errorf("replay WAL: %w", err)
 		}
 		s.applyLocked(rec)
-	}
-	if err := scan.Err(); err != nil {
-		f.Close()
-		return err
+		if readErr == io.EOF {
+			break
+		}
 	}
 	if _, err := f.Seek(0, 2); err != nil {
 		f.Close()
