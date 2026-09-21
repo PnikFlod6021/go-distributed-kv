@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: kv
+  namespace: distributed-kv
+spec:
+  serviceName: kv-headless
+  replicas: 3
+  selector:
+    matchLabels:
+      app: distributed-kv
+  template:
+    metadata:
+      labels:
+        app: distributed-kv
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+      containers:
+        - name: kv
+          image: go-distributed-kv:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          command: ["/bin/sh","-c"]
+          args:
+            - >-
+              exec /usr/local/bin/kv-server
+              -node=${POD_NAME}
+              -self-url=http://${POD_NAME}.kv-headless.distributed-kv.svc.cluster.local:8080
+              -addr=:8080
+              -wal=/data/store.wal
+              -replicas=2
+              -nodes=kv-0=http://kv-0.kv-headless.distributed-kv.svc.cluster.local:8080,kv-1=http://kv-1.kv-headless.distributed-kv.svc.cluster.local:8080,kv-2=http://kv-2.kv-headless.distributed-kv.svc.cluster.local:8080
+          readinessProbe:
+            httpGet: {path: /healthz, port: 8080}
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: {path: /healthz, port: 8080}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests: {cpu: "100m", memory: "64Mi"}
+            limits: {cpu: "500m", memory: "256Mi"}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi

@@ -1,0 +1,12 @@
+{
+  "title":"Distributed KV Store",
+  "schemaVersion":39,
+  "version":1,
+  "refresh":"5s",
+  "panels":[
+    {"type":"timeseries","title":"Request Rate","gridPos":{"x":0,"y":0,"w":12,"h":8},"targets":[{"expr":"rate(kv_requests_total[1m])","legendFormat":"{{instance}}"}]},
+    {"type":"timeseries","title":"Average Request Latency","gridPos":{"x":12,"y":0,"w":12,"h":8},"targets":[{"expr":"kv_request_latency_seconds_avg","legendFormat":"{{instance}}"}]},
+    {"type":"timeseries","title":"Replication Failures","gridPos":{"x":0,"y":8,"w":12,"h":8},"targets":[{"expr":"kv_replication_failures_total","legendFormat":"{{instance}}"}]},
+    {"type":"timeseries","title":"Keys per Node","gridPos":{"x":12,"y":8,"w":12,"h":8},"targets":[{"expr":"kv_keys","legendFormat":"{{instance}}"}]}
+  ]
+}
