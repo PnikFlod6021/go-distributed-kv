@@ -1,0 +1,11 @@
+data/
+*.tmp
+.DS_Store
+/server
+/server.exe
+/loadtest
+/loadtest.exe
+coverage.out
+.env
+.env.*
+!.env.example
