@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"hash/fnv"
 	"io"
@@ -165,28 +166,44 @@ func (c *Cluster) ForwardWrite(ctx context.Context, leader Node, method, key, va
 	return c.client.Do(req)
 }
 
-func (c *Cluster) FetchFromOwners(ctx context.Context, key string) (string, string, bool) {
-	for _, n := range c.Owners(key) {
+var ErrReadUnavailable = errors.New("could not complete read from replica owners")
+
+func (c *Cluster) FetchFromOwners(ctx context.Context, key string) (string, string, bool, error) {
+	owners := c.Owners(key)
+	unavailable := len(owners) == 0
+	for _, n := range owners {
 		endpoint := n.URL + "/internal/value/" + url.PathEscape(key)
-		req, _ := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+		if err != nil {
+			unavailable = true
+			continue
+		}
 		resp, err := c.client.Do(req)
 		if err != nil {
+			unavailable = true
 			continue
 		}
 		if resp.StatusCode == http.StatusOK {
 			var x struct {
-				Value string `json:"value"`
+				Value *string `json:"value"`
 			}
 			err = json.NewDecoder(resp.Body).Decode(&x)
 			resp.Body.Close()
-			if err == nil {
-				return x.Value, n.ID, true
+			if err == nil && x.Value != nil {
+				return *x.Value, n.ID, true, nil
 			}
+			unavailable = true
 		} else {
 			resp.Body.Close()
+			if resp.StatusCode != http.StatusNotFound {
+				unavailable = true
+			}
 		}
 	}
-	return "", "", false
+	if unavailable {
+		return "", "", false, ErrReadUnavailable
+	}
+	return "", "", false, nil
 }
 
 func hash(s string) uint32 { h := fnv.New32a(); _, _ = h.Write([]byte(s)); return h.Sum32() }
