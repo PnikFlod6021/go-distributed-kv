@@ -42,6 +42,8 @@ Read from another node:
 curl http://localhost:8083/kv/gpu
 ```
 
+A read returns `404` when every owner reports the key is missing. If no owner returns a value and any owner is unreachable or returns an invalid response, the API returns `503` instead. A healthy owner can still serve the read when another owner is unavailable.
+
 Inspect cluster routing:
 
 ```bash

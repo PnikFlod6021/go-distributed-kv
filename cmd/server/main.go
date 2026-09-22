@@ -115,7 +115,11 @@ func (s *server) kv(w http.ResponseWriter, r *http.Request) {
 	}
 	switch r.Method {
 	case http.MethodGet:
-		v, node, ok := s.cluster.FetchFromOwners(r.Context(), key)
+		v, node, ok, err := s.cluster.FetchFromOwners(r.Context(), key)
+		if err != nil {
+			http.Error(w, "replica read unavailable", http.StatusServiceUnavailable)
+			return
+		}
 		if !ok {
 			s.m.readMiss.Add(1)
 			http.Error(w, "key not found", 404)
