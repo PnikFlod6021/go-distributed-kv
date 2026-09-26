@@ -146,6 +146,9 @@ func (s *server) kv(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			defer resp.Body.Close()
+			if contentType := resp.Header.Get("Content-Type"); contentType != "" {
+				w.Header().Set("Content-Type", contentType)
+			}
 			w.WriteHeader(resp.StatusCode)
 			_, _ = io.Copy(w, resp.Body)
 			return
@@ -190,10 +193,16 @@ func (s *server) apply(w http.ResponseWriter, r *http.Request) {
 		}
 		w.WriteHeader(204)
 	default:
+		w.Header().Set("Allow", "PUT, DELETE")
 		http.Error(w, "method not allowed", 405)
 	}
 }
 func (s *server) internalValue(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.Header().Set("Allow", "GET")
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
 	key := strings.TrimPrefix(r.URL.Path, "/internal/value/")
 	v, ok := s.store.Get(key)
 	if !ok {
