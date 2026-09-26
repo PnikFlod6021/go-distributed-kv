@@ -21,3 +21,42 @@ jobs:
       - run: go vet ./...
       - run: go test -race ./...
       - run: go build ./...
+
+  compose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+      - run: python3 -u scripts/smoke-test.py
+
+  kubernetes:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install kind
+        run: |
+          curl -fsSL https://github.com/kubernetes-sigs/kind/releases/download/v0.33.0/kind-linux-amd64 -o kind
+          echo 'aee6151561422756b764a4ae28e7f44cda5af5a9eead3cc9985112b1de8d8e0d  kind' | sha256sum --check
+          chmod +x kind
+          sudo mv kind /usr/local/bin/kind
+      - name: Start a test cluster
+        run: |
+          kind create cluster --name kv-test --image kindest/node:v1.37.0@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5 --wait 120s
+          docker build -t go-distributed-kv:ci .
+          kind load docker-image go-distributed-kv:ci --name kv-test
+      - name: Check StatefulSet persistence
+        run: bash scripts/k8s-smoke-test.sh
+      - name: Deployment diagnostics
+        if: failure()
+        run: |
+          kubectl -n distributed-kv get pods,pvc
+          kubectl -n distributed-kv describe pods
+          kubectl -n distributed-kv logs -l app=distributed-kv --all-containers --tail=100
+      - name: Remove test cluster
+        if: always()
+        run: kind delete cluster --name kv-test
